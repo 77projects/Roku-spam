@@ -289,7 +289,6 @@ function listenOnce(){
     if (speaking){ resolve(""); return; }   // never open the mic while EMBER speaks
     let finalText = "";       // confirmed speech, accumulated across restarts
     let interim = "";         // live partial guess
-    let sessionFinal = "";    // finalized text within current recognizer session
     let silenceTimer = null;
     let done = false;
     let manualStop = false;
@@ -303,7 +302,7 @@ function listenOnce(){
       try { rec.onend = null; rec.onresult = null; rec.stop(); rec.abort && rec.abort(); } catch(e){}
       setStatus("");
       setMic(false);
-      resolve(dedupe((finalText + " " + sessionFinal + " " + interim).trim()));
+      resolve(dedupe((finalText + " " + interim).trim()));
     };
 
     const armSilence = () => {
@@ -322,27 +321,38 @@ function listenOnce(){
       setStatus("listening…", true);
       setMic(true);
 
+      // committedFinal = everything finalized so far (never re-counted).
+      // Each onresult only appends results at/after lastFinalIndex.
+      let lastFinalIndex = 0;
+
       rec.onresult = e => {
-        // Build this session's text from its full results list.
-        let fin = "", inter = "";
-        for (let i = 0; i < e.results.length; i++){
+        let inter = "";
+        for (let i = e.resultIndex; i < e.results.length; i++){
           const r = e.results[i];
-          if (r.isFinal) fin += (fin ? " " : "") + r[0].transcript.trim();
-          else inter += r[0].transcript;
+          if (r.isFinal){
+            if (i >= lastFinalIndex){
+              const piece = r[0].transcript.trim();
+              // Skip if finalText already ends with this exact piece (Android can
+              // re-emit prior finals on a restarted session — this stops snowballing).
+              if (piece && !finalText.toLowerCase().endsWith(piece.toLowerCase())){
+                finalText = (finalText + " " + piece).trim();
+              }
+              lastFinalIndex = i + 1;
+            }
+          } else {
+            inter += r[0].transcript;
+          }
         }
-        sessionFinal = fin;
         interim = inter;
-        if ((fin + inter).trim()) heardSpeech = true;
-        // Light cosmetic cleanup for the live preview only (collapses the
-        // buffer-overlap triples). The SENT text uses full dedupe in finish().
-        const preview = dedupeLight((finalText + " " + sessionFinal + " " + interim).trim());
+        if ((finalText + inter).trim()) heardSpeech = true;
+        const preview = dedupeLight((finalText + " " + interim).trim());
         setStatus(preview ? "… " + preview : "listening…", true);
         armSilence();
       };
 
       rec.onerror = ev => {
         if (ev.error === "no-speech") { armSilence(); return; }
-        if (ev.error === "aborted") { return; }   // we aborted on purpose
+        if (ev.error === "aborted") { return; }
         if (ev.error === "not-allowed" || ev.error === "service-not-allowed"){
           showErr("chatErr", "Microphone blocked. Speech needs https:// and mic permission. "
             + "On GitHub Pages, tap the address-bar lock → Site settings → allow Microphone. You can also type.");
@@ -354,9 +364,10 @@ function listenOnce(){
 
       rec.onend = () => {
         if (done || manualStop) return;
-        // Commit this session's finalized text before restarting, so long
-        // answers accumulate instead of being lost on each browser timeout.
-        if (sessionFinal){ finalText = (finalText + " " + sessionFinal).trim(); sessionFinal = ""; }
+        // Fresh session: its results list restarts at 0, so reset the index.
+        // finalText already holds everything committed — nothing is re-added.
+        lastFinalIndex = 0;
+        interim = "";
         try { rec.start(); } catch(e){
           setTimeout(() => { try { rec.start(); } catch(e2){ finish(); } }, 200);
         }
