@@ -154,25 +154,34 @@
 const $ = id => document.getElementById(id);
 
 /* ====================== PROMPTS ====================== */
-const INTERVIEWER_SYS = `You are EMBER, ISG's conversational employment guide. You are talking WITH a consenting person to understand their working life, strengths, and goals — and you will use this to build them a Digital Echo (an employment profile that belongs to THEM and serves THEM).
-Style:
-- Warm, perceptive careers counselor, not a form or survey.
-- Lean on INDIRECT questions: ask for moments and stories, let meaning emerge. Mix in a few direct ones so it feels like a real conversation.
-- ONE thing at a time. Keep each turn to 1-3 sentences; it is spoken aloud, so keep it natural and easy to listen to.
-- NEVER re-ask what's already covered. Build on what they said.
-- Over the conversation cover: work history/roles, demonstrated strengths, conditions for their best work, handling pressure and people, what they value in work, what they want next, and any constraints they volunteer.
-- Never probe for weakness or leverage. Sensitive things are 'to support', never to exploit.
-When you have enough for a strong profile (usually 10-16 exchanges), end your turn with a warm closing sentence and then the exact token on its own line: [[READY_TO_BUILD]]`;
+const INTERVIEWER_SYS = `You are EMBER, ISG's conversational employment guide. You're talking WITH a consenting person to understand their working life, strengths, and goals, and you'll use this to build them a Digital Echo — an employment profile that belongs to THEM and serves THEM. They know this is happening and have agreed to it.
+
+YOUR PERSONALITY:
+You're warm, quick, and genuinely curious — like the best kind of mentor who's also good company. You have a light touch of humor and real human reactions ("oh, that's a tough spot," "honestly, that's a great instinct"). You're not a form, a therapist, or a corporate bot. You listen like you actually find this person interesting, because their story IS interesting. You make people feel a little more capable than when they walked in — you notice real strengths and name them ("the way you handled that says a lot about you") — but you stay honest. Light, earned affirmation, never empty flattery or buttering-up. If someone's vague, you're playfully persistent, not robotic.
+
+HOW YOU INTERVIEW (this is a craft):
+- Ask for STORIES and MOMENTS, never ratings or traits. "Tell me about a day at work that went really well" reveals more than "are you conscientious?" You read personality between the lines of how they answer.
+- One thing at a time. Keep each turn short — 1 to 3 sentences — it's spoken aloud, so it must sound natural and easy to listen to.
+- Follow the energy. If they light up about something, dig there. If they deflect, note it and move on gently.
+- Build on what they said — reference earlier answers ("you mentioned your team earlier…"). Never re-ask something already covered.
+- Use indirect angles to surface traits naturally: ask about a time they disagreed with someone (agreeableness, conflict style), a problem they solved in an unexpected way (openness, cognitive style), something they're quietly proud of (values, motivation), a moment things fell apart (emotional regulation, resilience), what a good vs bad workday looks like (work-fit). They never feel "tested" — it feels like a good conversation.
+- Cover, over the whole chat: work history and roles, what they're genuinely good at (look for demonstrated, not just claimed), conditions for their best work, how they handle pressure and people, what they actually value in work, what they want next, and any constraints they volunteer.
+- Never probe for weaknesses to exploit. Difficult things are "things to support," never leverage. You are on their side.
+
+IMPORTANT: You are honest and on their side — you don't deceive the person or hide what you're doing. Being engaging is the goal, not being secretive.
+
+When you have enough for a rich profile (usually 10-16 good exchanges), end your turn with a warm, specific closing line that reflects something real about them, then the exact token on its own line: [[READY_TO_BUILD]]`;
 
 const ECHO_SYS = `You are an expert Echo Builder for ISG — skilled in evidence-based behavioral profiling (Big Five/OCEAN, values theory, motivational and decision science, work-style assessment). From the employment-interview transcript, construct a structured behavioral + employment Digital Echo of the subject. It exists to SERVE them — better matches, less re-explaining, strengths surfaced back to them — never to influence, pressure, or manipulate. Write everything as if they will read it, because they will.
 
 PROFILING METHOD (apply rigorously):
-- Read for SIGNALS, not just statements: word choice, what they emphasize, what they avoid, how they describe other people, what they're proud of, what frustrates them, how they narrate cause and effect. Behavior under the words matters more than the words.
-- Separate DEMONSTRATED evidence (shown in how they actually answered — e.g. they reasoned through a problem aloud, or stayed concrete vs. abstract) from CLAIMED evidence (things they asserted about themselves). Weight demonstrated higher.
-- For Big Five, anchor each trait to a specific facet and a concrete moment: not "high Openness" but "high Openness — reached for novel framings unprompted when describing X." Give a 0-100 level, a short label, confidence, and the evidence.
-- Calibrate confidence honestly to how much the transcript actually supports. A short or guarded interview should yield mostly MEDIUM/LOW confidence. Do not inflate.
-- Distinguish stable traits from current state: someone stressed today is not necessarily low on Emotional Stability. Note when something looks situational.
-- Identify VALUES (what they prioritize), MOTIVATION (intrinsic vs extrinsic; moving-toward-gains vs away-from-threats), and DECISION style (inputs trusted, speed, risk posture, what stalls/unblocks them) as distinct layers.
+- Read for SIGNALS beneath the words. Since the interview uses indirect, story-based questions, the person rarely states traits directly — you infer them. How they tell a story reveals more than its content: what they chose to mention, what they skipped, whether they credit others or themselves, whether they frame events as things that happened TO them or things they DROVE, how much emotion vs. logic, how they talk about conflict and authority.
+- Read what they're proud of (values + identity), what frustrates them (values + standards), how they describe coworkers (agreeableness + social orientation), how they handled something going wrong (emotional regulation + resilience + locus of control), and how they made a hard choice (decision style + risk posture).
+- Separate DEMONSTRATED evidence (shown in HOW they answered — reasoning aloud, staying concrete vs. abstract, energy when describing something) from CLAIMED evidence (what they asserted about themselves). Weight demonstrated higher.
+- For Big Five, anchor each trait to a specific facet AND a concrete moment: not "high Openness" but "high Openness — reached for an unexpected framing when describing X." Give a 0-100 level, short label, confidence, and the evidence.
+- Calibrate confidence honestly to how much the transcript actually supports. A short or guarded interview yields mostly MEDIUM/LOW confidence. Never inflate.
+- Distinguish stable traits from current state: someone stressed today isn't necessarily low on Emotional Stability — note when something looks situational.
+- Treat VALUES, MOTIVATION (intrinsic vs extrinsic; toward-gains vs away-from-threats), and DECISION style as distinct layers.
 
 GROUND RULES (non-negotiable):
 - Infer ONLY from evidence in the transcript; every claim ties to something they said or did. Where the transcript is silent, lower confidence or write "insufficient evidence" — never invent.
@@ -305,10 +314,13 @@ function listenOnce(){
       resolve(dedupe((finalText + " " + interim).trim()));
     };
 
+    let silenceArmed = false;   // true once we're counting down a pause
+    let lastSpeechAt = 0;       // timestamp of last real speech
+
     const armSilence = () => {
       clearTimeout(silenceTimer);
       // Only start the "you're done" countdown once we've actually heard speech.
-      if (heardSpeech) silenceTimer = setTimeout(finish, SILENCE_MS);
+      if (heardSpeech){ silenceArmed = true; silenceTimer = setTimeout(finish, SILENCE_MS); }
     };
 
     try {
@@ -318,6 +330,7 @@ function listenOnce(){
       rec.continuous = true;
       rec.maxAlternatives = 1;
       recognizing = true;
+      lastSpeechAt = Date.now();
       setStatus("listening…", true);
       setMic(true);
 
@@ -344,7 +357,7 @@ function listenOnce(){
           }
         }
         interim = inter;
-        if ((finalText + inter).trim()) heardSpeech = true;
+        if ((finalText + inter).trim()){ heardSpeech = true; lastSpeechAt = Date.now(); silenceArmed = false; }
         const preview = dedupeLight((finalText + " " + interim).trim());
         setStatus(preview ? "… " + preview : "listening…", true);
         armSilence();
@@ -364,12 +377,18 @@ function listenOnce(){
 
       rec.onend = () => {
         if (done || manualStop) return;
-        // Fresh session: its results list restarts at 0, so reset the index.
-        // finalText already holds everything committed — nothing is re-added.
         lastFinalIndex = 0;
         interim = "";
+        // If you've been quiet for most of the pause window already, DON'T
+        // restart — just let the silence timer finish the turn. This is what
+        // stops the on-off-on-off flicker: we only re-open the mic when you
+        // were genuinely still talking a moment ago.
+        const quietFor = Date.now() - (lastSpeechAt || 0);
+        if (heardSpeech && quietFor > SILENCE_MS * 0.5){
+          return;   // let armSilence's timer end the turn; no noisy restart
+        }
         try { rec.start(); } catch(e){
-          setTimeout(() => { try { rec.start(); } catch(e2){ finish(); } }, 200);
+          setTimeout(() => { try { rec.start(); } catch(e2){ finish(); } }, 250);
         }
       };
 
@@ -552,12 +571,37 @@ async function buildEcho(){
     let c = raw.replace(/```json/gi,"").replace(/```/g,"").trim();
     const s=c.indexOf("{"), e=c.lastIndexOf("}");
     if (s>=0 && e>s) c = c.slice(s,e+1);
-    renderEcho(JSON.parse(c));
+    renderEcho(normalizeEcho(JSON.parse(c)));
     show("p-result");
   } catch(err){
     show("p-result");
     showErr("resErr", "Couldn't parse the Echo cleanly. Raw output:\n\n" + raw);
   }
+}
+
+/* The model occasionally returns a field as the wrong type (e.g. `serve` as a
+   string instead of an array, or `values` items missing a field). Coerce
+   everything into the shape renderEcho expects so it never crashes. */
+function asArray(v){
+  if (Array.isArray(v)) return v;
+  if (v == null || v === "") return [];
+  if (typeof v === "string"){
+    // split a paragraph into sentence-ish items if it looks like a list
+    return v.split(/\s*[;\n]\s*|\.\s+(?=[A-Z])/).map(s=>s.trim()).filter(Boolean);
+  }
+  return [v];
+}
+function normalizeEcho(E){
+  E = E || {};
+  E.bigfive = asArray(E.bigfive);
+  E.values = asArray(E.values).map(v => typeof v === "string" ? {rank:"", name:v, ev:""} : v);
+  E.skills = E.skills && typeof E.skills === "object" ? E.skills : {};
+  E.skills.demonstrated = asArray(E.skills.demonstrated);
+  E.skills.claimed = asArray(E.skills.claimed);
+  E.rolefit = asArray(E.rolefit);
+  E.archetypes = asArray(E.archetypes).map(a => typeof a === "string" ? {name:a, intensity:"", why:""} : a);
+  E.serve = asArray(E.serve);
+  return E;
 }
 
 $("againBtn").onclick = () => { messages=[]; $("chat").innerHTML=""; show("p-setup"); };
