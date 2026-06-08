@@ -271,7 +271,7 @@ function speak(text){
    The recognizer runs continuously and accumulates everything you say. After
    you stop talking for SILENCE_MS, we treat the turn as finished and resolve.
    Short pauses mid-thought no longer cut you off. */
-const SILENCE_MS = 2000;   // ~2s pause = "your turn" — natural, room to breathe
+const SILENCE_MS = 3500;   // longer pause so it won't cut you off mid-thought
 let stopListening = function(){ try { if (rec) rec.stop(); } catch(e){} };
 
 function listenOnce(){
@@ -293,7 +293,7 @@ function listenOnce(){
       try { rec.onend = null; rec.onresult = null; rec.stop(); rec.abort && rec.abort(); } catch(e){}
       setStatus("");
       setMic(false);
-      resolve((finalText + " " + interim).trim());
+      resolve(dedupe((finalText + " " + interim).trim()));
     };
 
     const armSilence = () => {
@@ -385,13 +385,42 @@ function bubble(role, text){
   $("chat").appendChild(d);
   d.scrollIntoView({behavior:"smooth", block:"end"});
 }
-function esc(s){ return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function esc(s){
+  // Tolerate the model occasionally returning an object/array where we expect
+  // text (e.g. {"insight":"low"}) — flatten it to readable "key: value" text.
+  if (s && typeof s === "object"){
+    if (Array.isArray(s)) s = s.map(x => (x && typeof x === "object") ? Object.values(x).join(" — ") : x).join(", ");
+    else s = Object.entries(s).map(([k,v]) => `${k}: ${v}`).join(" · ");
+  }
+  return (s==null ? "" : String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+}
 function showErr(id,msg){ const e=$(id); e.classList.add("show"); e.textContent=msg; }
 function setMic(listening){
   const b = $("micBtn");
   if (!b) return;
   if (listening){ b.textContent = "⏹ Listening… (pause when done, or tap)"; b.classList.add("stop"); }
   else { b.textContent = "🎙 Tap to speak"; b.classList.remove("stop"); }
+}
+/* Collapse immediate duplicate phrases the recognizer sometimes emits, e.g.
+   "I like sales I like sales" -> "I like sales". Works on repeated word-runs. */
+function dedupe(text){
+  if (!text) return text;
+  const words = text.split(/\s+/);
+  // remove a repeated block if the back half equals the front half
+  for (let size = Math.floor(words.length/2); size >= 2; size--){
+    for (let i = 0; i + 2*size <= words.length; i++){
+      const a = words.slice(i, i+size).join(" ").toLowerCase();
+      const b = words.slice(i+size, i+2*size).join(" ").toLowerCase();
+      if (a === b){
+        words.splice(i+size, size);   // drop the duplicate block
+        return dedupe(words.join(" ")); // re-scan after removal
+      }
+    }
+  }
+  // also collapse simple consecutive duplicate single words
+  const out = [];
+  for (const w of words){ if (out.length===0 || out[out.length-1].toLowerCase()!==w.toLowerCase()) out.push(w); }
+  return out.join(" ");
 }
 
 /* ====================== CONVERSATION LOOP ====================== */
