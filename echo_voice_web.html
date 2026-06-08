@@ -262,7 +262,7 @@ function speak(text){
    The recognizer runs continuously and accumulates everything you say. After
    you stop talking for SILENCE_MS, we treat the turn as finished and resolve.
    Short pauses mid-thought no longer cut you off. */
-const SILENCE_MS = 2500;   // how long a pause must be before EMBER takes its turn
+const SILENCE_MS = 2000;   // ~2s pause = "your turn" — natural, room to breathe
 let stopListening = function(){ try { if (rec) rec.stop(); } catch(e){} };
 
 function listenOnce(){
@@ -281,6 +281,7 @@ function listenOnce(){
       recognizing = false;
       try { rec.onend = null; rec.stop(); } catch(e){}
       setStatus("");
+      setMic(false);
       resolve((finalText + " " + interim).trim());
     };
 
@@ -296,7 +297,8 @@ function listenOnce(){
       rec.continuous = true;         // keep going through pauses
       rec.maxAlternatives = 1;
       recognizing = true;
-      setStatus("listening — speak naturally, pause when done", true);
+      setStatus("listening…", true);
+      setMic(true);
 
       rec.onresult = e => {
         interim = "";
@@ -368,29 +370,37 @@ function bubble(role, text){
 }
 function esc(s){ return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 function showErr(id,msg){ const e=$(id); e.classList.add("show"); e.textContent=msg; }
+function setMic(listening){
+  const b = $("micBtn");
+  if (!b) return;
+  if (listening){ b.textContent = "⏹ Listening… (pause when done, or tap)"; b.classList.add("stop"); }
+  else { b.textContent = "🎙 Tap to speak"; b.classList.remove("stop"); }
+}
 
 /* ====================== CONVERSATION LOOP ====================== */
 async function emberTurn(){
   if (busy) return;
   busy = true;
-  setStatus("EMBER is thinking…");
+  setStatus("…");
   try {
-    const seed = messages.length ? messages : [{role:"user", content:"Begin the conversation. Greet me warmly, explain in one or two sentences that this is a relaxed chat to build my employment Echo, and ask your first question."}];
+    const seed = messages.length ? messages : [{role:"user", content:"Begin the conversation. Greet me warmly in ONE short sentence, say this is a relaxed chat to build their employment Echo, and ask your first question. Keep it brief and natural — it's spoken aloud."}];
     let reply = await groq(INTERVIEWER_SYS, seed, false);
     const ready = reply.includes("[[READY_TO_BUILD]]");
     reply = reply.replace("[[READY_TO_BUILD]]","").trim();
     messages.push({role:"assistant", content:reply});
     bubble("assistant", reply);
-    setStatus(voiceOut ? "EMBER is speaking…" : "");
+    setStatus(voiceOut ? "speaking…" : "");
     await speak(reply);
-    setStatus("");
     busy = false;
     if (ready){
-      bubble("","— EMBER feels there's enough. Tap 'Build my Echo' when ready —");
+      setStatus("");
+      bubble("","— EMBER has enough to build your Echo whenever you're ready —");
       handsFree = false; updateHandsBtn();
       return;
     }
-    if (handsFree) setTimeout(listenAndReply, 250);
+    // Flow straight into listening — no tap, minimal gap.
+    if (handsFree) setTimeout(listenAndReply, 120);
+    else setStatus("");
   } catch(err){
     busy = false; setStatus("");
     showErr("chatErr", err.message + (err.message.includes("401") ? "\n→ check your key starts with gsk_" : ""));
@@ -399,13 +409,14 @@ async function emberTurn(){
 
 async function listenAndReply(){
   if (!handsFree || busy) return;
-  $("micBtn").textContent = "⏹ Listening… (pause when done)";
-  $("micBtn").classList.add("stop");
   const txt = await listenOnce();
-  $("micBtn").textContent = "🎙 Tap to speak";
-  $("micBtn").classList.remove("stop");
   if (!handsFree) return;
-  if (!txt){ setStatus("didn't catch that — tap the mic or type"); return; }
+  if (!txt){
+    // Heard nothing — quietly reopen the mic instead of stalling the conversation.
+    setStatus("");
+    setTimeout(listenAndReply, 150);
+    return;
+  }
   messages.push({role:"user", content:txt});
   bubble("me", txt);
   emberTurn();
@@ -413,15 +424,11 @@ async function listenAndReply(){
 
 /* ====================== CONTROLS ====================== */
 $("micBtn").onclick = async () => {
-  if (recognizing){ stopListening(); $("micBtn").textContent = "🎙 Tap to speak"; $("micBtn").classList.remove("stop"); return; }
-  $("micBtn").textContent = "⏹ I'm done (or just pause)";
-  $("micBtn").classList.add("stop");
+  // If we're already listening (hands-free or manual), tapping = "I'm done."
+  if (recognizing){ stopListening(); return; }
+  // Otherwise (e.g. hands-free off), do a one-shot capture into the text box.
   const txt = await listenOnce();
-  $("micBtn").textContent = "🎙 Tap to speak";
-  $("micBtn").classList.remove("stop");
-  if (txt){
-    $("answer").value = ($("answer").value + " " + txt).trim();
-  }
+  if (txt){ $("answer").value = ($("answer").value + " " + txt).trim(); }
 };
 
 $("sendBtn").onclick = () => {
