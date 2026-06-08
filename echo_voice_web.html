@@ -280,7 +280,7 @@ function speak(text){
    The recognizer runs continuously and accumulates everything you say. After
    you stop talking for SILENCE_MS, we treat the turn as finished and resolve.
    Short pauses mid-thought no longer cut you off. */
-const SILENCE_MS = 5000;   // 5s pause — lets people talk at length without being cut off
+const SILENCE_MS = 10000;  // 10s pause — lots of room to think and talk at length
 let stopListening = function(){ try { if (rec) rec.stop(); } catch(e){} };
 
 function listenOnce(){
@@ -333,7 +333,9 @@ function listenOnce(){
         sessionFinal = fin;
         interim = inter;
         if ((fin + inter).trim()) heardSpeech = true;
-        const preview = (finalText + " " + sessionFinal + " " + interim).trim();
+        // Light cosmetic cleanup for the live preview only (collapses the
+        // buffer-overlap triples). The SENT text uses full dedupe in finish().
+        const preview = dedupeLight((finalText + " " + sessionFinal + " " + interim).trim());
         setStatus(preview ? "… " + preview : "listening…", true);
         armSilence();
       };
@@ -407,6 +409,26 @@ function setMic(listening){
   if (!b) return;
   if (listening){ b.textContent = "⏹ Listening… (pause when done, or tap)"; b.classList.add("stop"); }
   else { b.textContent = "🎙 Tap to speak"; b.classList.remove("stop"); }
+}
+/* Light dedupe for the live preview: collapses consecutive repeated single
+   words and immediate 2-3 word echoes (the buffer-overlap artifact), but does
+   NOT aggressively scan for large repeated blocks — so a long preview stays fast. */
+function dedupeLight(text){
+  if (!text) return text;
+  let words = text.split(/\s+/);
+  // collapse immediate repeated runs of 1-3 words
+  for (let size = 3; size >= 1; size--){
+    const out = [];
+    for (let i = 0; i < words.length; ){
+      const block = words.slice(i, i+size).join(" ").toLowerCase();
+      const next  = words.slice(i+size, i+2*size).join(" ").toLowerCase();
+      if (size > 1 && block && block === next){ i += size; continue; } // skip the repeat
+      if (size === 1){ if (out.length===0 || out[out.length-1].toLowerCase()!==words[i].toLowerCase()) out.push(words[i]); i++; }
+      else { out.push(words[i]); i++; }
+    }
+    words = out;
+  }
+  return words.join(" ");
 }
 /* Collapse immediate duplicate phrases the recognizer sometimes emits, e.g.
    "I like sales I like sales" -> "I like sales". Works on repeated word-runs. */
