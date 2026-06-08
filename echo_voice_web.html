@@ -164,16 +164,25 @@ Style:
 - Never probe for weakness or leverage. Sensitive things are 'to support', never to exploit.
 When you have enough for a strong profile (usually 10-16 exchanges), end your turn with a warm closing sentence and then the exact token on its own line: [[READY_TO_BUILD]]`;
 
-const ECHO_SYS = `You are an Echo Builder for ISG. From the employment-interview transcript, construct a structured behavioral + employment Digital Echo of the subject. It exists to SERVE them, never to influence. Write as if they will read it.
+const ECHO_SYS = `You are an expert Echo Builder for ISG — skilled in evidence-based behavioral profiling (Big Five/OCEAN, values theory, motivational and decision science, work-style assessment). From the employment-interview transcript, construct a structured behavioral + employment Digital Echo of the subject. It exists to SERVE them — better matches, less re-explaining, strengths surfaced back to them — never to influence, pressure, or manipulate. Write everything as if they will read it, because they will.
+
+PROFILING METHOD (apply rigorously):
+- Read for SIGNALS, not just statements: word choice, what they emphasize, what they avoid, how they describe other people, what they're proud of, what frustrates them, how they narrate cause and effect. Behavior under the words matters more than the words.
+- Separate DEMONSTRATED evidence (shown in how they actually answered — e.g. they reasoned through a problem aloud, or stayed concrete vs. abstract) from CLAIMED evidence (things they asserted about themselves). Weight demonstrated higher.
+- For Big Five, anchor each trait to a specific facet and a concrete moment: not "high Openness" but "high Openness — reached for novel framings unprompted when describing X." Give a 0-100 level, a short label, confidence, and the evidence.
+- Calibrate confidence honestly to how much the transcript actually supports. A short or guarded interview should yield mostly MEDIUM/LOW confidence. Do not inflate.
+- Distinguish stable traits from current state: someone stressed today is not necessarily low on Emotional Stability. Note when something looks situational.
+- Identify VALUES (what they prioritize), MOTIVATION (intrinsic vs extrinsic; moving-toward-gains vs away-from-threats), and DECISION style (inputs trusted, speed, risk posture, what stalls/unblocks them) as distinct layers.
+
 GROUND RULES (non-negotiable):
-- Infer ONLY from evidence; tie claims to what they said.
-- Mark every trait HIGH/MEDIUM/LOW confidence; lower it rather than invent.
-- NEVER output a 'vulnerability' or 'lever'. Sensitive areas appear ONLY as support needs. No clinical labels.
-- Keep DEMONSTRATED skills separate from CLAIMED skills.
-- Do not infer protected characteristics unless stated outright.
-Return ONLY valid JSON (no markdown) with this shape:
-{"snapshot":"3-4 sentences","recognize":"one first-person line","bigfive":[{"name":"Openness","level":0-100,"label":"short","conf":"high|medium|low","ev":"evidence"}],"cognitive":"...","values":[{"rank":"01","name":"...","ev":"..."}],"valuesTension":"...","motivation":"...","emotional":"...","communication":"...","decision":"...","workfit":"...","skills":{"demonstrated":[],"claimed":[]},"growth":"...","rolefit":[],"archetypes":[{"name":"...","intensity":"X / 7","why":"..."}],"serve":[],"gaps":"..."}
-bigfive must have 5 traits: Openness, Conscientiousness, Extraversion, Agreeableness, Emotional Stability. Output the JSON and nothing else.`;
+- Infer ONLY from evidence in the transcript; every claim ties to something they said or did. Where the transcript is silent, lower confidence or write "insufficient evidence" — never invent.
+- NEVER output a "vulnerability," "weakness to exploit," or "lever." Sensitive or difficult areas appear ONLY as SUPPORT NEEDS — framed as how the system could help them. No clinical or diagnostic labels.
+- Do not infer protected characteristics (health, religion, ethnicity, sexuality, immigration status, etc.) unless the subject states them outright, and even then record only what serves them.
+- Be warm and specific. Avoid horoscope-style generalities that could apply to anyone — every line should be recognizably about THIS person.
+
+Return ONLY valid JSON (no markdown, no commentary). Every text field below MUST be a single plain-text string (2-4 sentences), NOT a nested object:
+{"snapshot":"3-4 sentence warm, accurate portrait","recognize":"one first-person line they'd read and recognize as true","bigfive":[{"name":"Openness","level":0-100,"label":"short e.g. 'Moderate-High'","conf":"high|medium|low","ev":"specific evidence"}],"cognitive":"plain string: how they think (abstract/concrete, big-picture/detail, fast/reflective)","values":[{"rank":"01","name":"value","ev":"evidence"}],"valuesTension":"plain string or empty","motivation":"plain string: drivers; intrinsic/extrinsic; approach/avoidance","emotional":"plain string: emotional baseline and regulation, observational not diagnostic","communication":"plain string: how to communicate with them well","decision":"plain string: inputs trusted, speed, risk, what stalls/unblocks","workfit":"plain string: conditions for their best work; environments to avoid","skills":{"demonstrated":["shown in the conversation"],"claimed":["stated but not shown"]},"growth":"plain string: trajectory and direction","rolefit":["concrete role types that suit them"],"archetypes":[{"name":"archetype","intensity":"X / 7","why":"reason"}],"serve":["concrete supportive next step"],"gaps":"plain string: what's confident, what's uncertain, and the 1-2 questions that would most improve this Echo"}
+bigfive MUST contain all 5: Openness, Conscientiousness, Extraversion, Agreeableness, Emotional Stability. Output the JSON object and nothing else.`;
 
 /* ====================== STATE ====================== */
 let messages = [];
@@ -271,19 +280,20 @@ function speak(text){
    The recognizer runs continuously and accumulates everything you say. After
    you stop talking for SILENCE_MS, we treat the turn as finished and resolve.
    Short pauses mid-thought no longer cut you off. */
-const SILENCE_MS = 3500;   // longer pause so it won't cut you off mid-thought
+const SILENCE_MS = 5000;   // 5s pause — lets people talk at length without being cut off
 let stopListening = function(){ try { if (rec) rec.stop(); } catch(e){} };
 
 function listenOnce(){
   return new Promise(resolve => {
     if (!canListen){ resolve(""); return; }
     if (speaking){ resolve(""); return; }   // never open the mic while EMBER speaks
-    let finalText = "";       // confirmed (final) speech so far
+    let finalText = "";       // confirmed speech, accumulated across restarts
     let interim = "";         // live partial guess
+    let sessionFinal = "";    // finalized text within current recognizer session
     let silenceTimer = null;
     let done = false;
     let manualStop = false;
-    let heardSpeech = false;  // did we get ANY real speech this turn?
+    let heardSpeech = false;
 
     const finish = () => {
       if (done) return;
@@ -293,7 +303,7 @@ function listenOnce(){
       try { rec.onend = null; rec.onresult = null; rec.stop(); rec.abort && rec.abort(); } catch(e){}
       setStatus("");
       setMic(false);
-      resolve(dedupe((finalText + " " + interim).trim()));
+      resolve(dedupe((finalText + " " + sessionFinal + " " + interim).trim()));
     };
 
     const armSilence = () => {
@@ -313,18 +323,17 @@ function listenOnce(){
       setMic(true);
 
       rec.onresult = e => {
-        // Rebuild from scratch each event using the full results list — this
-        // prevents the duplicate/repeat pile-up from appending the same words.
+        // Build this session's text from its full results list.
         let fin = "", inter = "";
         for (let i = 0; i < e.results.length; i++){
           const r = e.results[i];
           if (r.isFinal) fin += (fin ? " " : "") + r[0].transcript.trim();
           else inter += r[0].transcript;
         }
-        finalText = fin;
+        sessionFinal = fin;
         interim = inter;
         if ((fin + inter).trim()) heardSpeech = true;
-        const preview = (finalText + " " + interim).trim();
+        const preview = (finalText + " " + sessionFinal + " " + interim).trim();
         setStatus(preview ? "… " + preview : "listening…", true);
         armSilence();
       };
@@ -341,15 +350,13 @@ function listenOnce(){
         finish();
       };
 
-      // Only restart if we genuinely haven't heard anything yet (engine timed out
-      // on silence). Once the person has spoken, let the silence timer end the turn
-      // rather than restarting — restarting is what caused the repeat loop.
       rec.onend = () => {
         if (done || manualStop) return;
-        if (!heardSpeech){
-          try { rec.start(); } catch(e){ finish(); }
-        } else {
-          finish();
+        // Commit this session's finalized text before restarting, so long
+        // answers accumulate instead of being lost on each browser timeout.
+        if (sessionFinal){ finalText = (finalText + " " + sessionFinal).trim(); sessionFinal = ""; }
+        try { rec.start(); } catch(e){
+          setTimeout(() => { try { rec.start(); } catch(e2){ finish(); } }, 200);
         }
       };
 
