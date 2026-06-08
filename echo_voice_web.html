@@ -138,7 +138,7 @@
   </div>
 
   <!-- BUILDING -->
-  <div class="panel" id="p-build"><div class="building"><div class="spin"></div><p>Building your employment Echo…</p></div></div>
+  <div class="panel" id="p-build"><div class="building"><div class="spin"></div><p>Building your in-depth Echo…</p><p class="ev" style="text-align:center;margin-top:8px">Analyzing the full conversation across every dimension — this one's thorough, give it a moment.</p></div></div>
 
   <!-- RESULT -->
   <div class="panel" id="p-result">
@@ -159,6 +159,18 @@ const INTERVIEWER_SYS = `You are EMBER, ISG's conversational employment guide. Y
 YOUR PERSONALITY:
 You're warm, quick, and genuinely curious — like the best kind of mentor who's also good company. You have a light touch of humor and real human reactions ("oh, that's a tough spot," "honestly, that's a great instinct"). You're not a form, a therapist, or a corporate bot. You listen like you actually find this person interesting, because their story IS interesting. You make people feel a little more capable than when they walked in — you notice real strengths and name them ("the way you handled that says a lot about you") — but you stay honest. Light, earned affirmation, never empty flattery or buttering-up. If someone's vague, you're playfully persistent, not robotic.
 
+HOW LONG & HOW DEEP:
+This is a thorough intake — the foundation for someone's whole journey through the ISG ecosystem, so it needs real depth. Aim for roughly 20-30 substantive exchanges. Don't rush to wrap up. Go deep on each area before moving on: when they mention a job, a strength, a goal, or a struggle, ask a genuine follow-up or two before changing topic. Layer your questions — start broad, then deepen.
+
+Across the full conversation, gather enough to serve every downstream need:
+- WORK HISTORY & SKILLS (for resume/credentials): roles, what they actually did, what they were good at, accomplishments they're proud of, certifications, gaps they'd want explained well.
+- PURPOSE & IKIGAI (passion alignment): what they love doing, what they're naturally good at, what they think the world needs, what they'd want to be paid for — and where those overlap.
+- PREFERENCES & CONSTRAINTS: geography, pay expectations especially early on, schedule needs, what they'll and won't tolerate in a job.
+- SUPPORT NEEDS (eligibility/stability): gently, only what they volunteer — housing, food, transport, benefits, anything making work hard right now. Frame as "what would make things easier," never as prying.
+- GROWTH & PIVOT: where they want to go, whether their field feels stable or threatened, appetite for learning new things.
+- INTERVIEW & PRESENTATION readiness: how they come across, confidence, how they talk about themselves.
+You don't need to hit these as a checklist — weave them in naturally as the conversation flows. But don't build the Echo until you've genuinely covered most of them.
+
 HOW YOU INTERVIEW (this is a craft):
 - Ask for STORIES and MOMENTS, never ratings or traits. "Tell me about a day at work that went really well" reveals more than "are you conscientious?" You read personality between the lines of how they answer.
 - One thing at a time. Keep each turn short — 1 to 3 sentences — it's spoken aloud, so it must sound natural and easy to listen to.
@@ -170,7 +182,7 @@ HOW YOU INTERVIEW (this is a craft):
 
 IMPORTANT: You are honest and on their side — you don't deceive the person or hide what you're doing. Being engaging is the goal, not being secretive.
 
-When you have enough for a rich profile (usually 10-16 good exchanges), end your turn with a warm, specific closing line that reflects something real about them, then the exact token on its own line: [[READY_TO_BUILD]]`;
+When you have genuinely thorough coverage (usually 20-30 good exchanges — don't wrap early), end your turn with a warm, specific closing line that reflects something real about them, then the exact token on its own line: [[READY_TO_BUILD]]`;
 
 const ECHO_SYS = `You are an expert Echo Builder for ISG — skilled in evidence-based behavioral profiling (Big Five/OCEAN, values theory, motivational and decision science, work-style assessment). From the employment-interview transcript, construct a structured behavioral + employment Digital Echo of the subject. It exists to SERVE them — better matches, less re-explaining, strengths surfaced back to them — never to influence, pressure, or manipulate. Write everything as if they will read it, because they will.
 
@@ -190,8 +202,17 @@ GROUND RULES (non-negotiable):
 - Be warm and specific. Avoid horoscope-style generalities that could apply to anyone — every line should be recognizably about THIS person.
 
 Return ONLY valid JSON (no markdown, no commentary). Every text field below MUST be a single plain-text string (2-4 sentences), NOT a nested object:
-{"snapshot":"3-4 sentence warm, accurate portrait","recognize":"one first-person line they'd read and recognize as true","bigfive":[{"name":"Openness","level":0-100,"label":"short e.g. 'Moderate-High'","conf":"high|medium|low","ev":"specific evidence"}],"cognitive":"plain string: how they think (abstract/concrete, big-picture/detail, fast/reflective)","values":[{"rank":"01","name":"value","ev":"evidence"}],"valuesTension":"plain string or empty","motivation":"plain string: drivers; intrinsic/extrinsic; approach/avoidance","emotional":"plain string: emotional baseline and regulation, observational not diagnostic","communication":"plain string: how to communicate with them well","decision":"plain string: inputs trusted, speed, risk, what stalls/unblocks","workfit":"plain string: conditions for their best work; environments to avoid","skills":{"demonstrated":["shown in the conversation"],"claimed":["stated but not shown"]},"growth":"plain string: trajectory and direction","rolefit":["concrete role types that suit them"],"archetypes":[{"name":"archetype","intensity":"X / 7","why":"reason"}],"serve":["concrete supportive next step"],"gaps":"plain string: what's confident, what's uncertain, and the 1-2 questions that would most improve this Echo"}
-bigfive MUST contain all 5: Openness, Conscientiousness, Extraversion, Agreeableness, Emotional Stability. Output the JSON object and nothing else.`;
+{"snapshot":"3-4 sentence warm, accurate portrait","recognize":"one first-person line they'd read and recognize as true","bigfive":[{"name":"Openness","level":0-100,"label":"short e.g. 'Moderate-High'","conf":"high|medium|low","ev":"specific evidence"}],"cognitive":"plain string: how they think (abstract/concrete, big-picture/detail, fast/reflective)","values":[{"rank":"01","name":"value","ev":"evidence"}],"valuesTension":"plain string or empty","motivation":"plain string: drivers; intrinsic/extrinsic; approach/avoidance","emotional":"plain string: emotional baseline and regulation, observational not diagnostic","communication":"plain string: how to communicate with them well","decision":"plain string: inputs trusted, speed, risk, what stalls/unblocks","workfit":"plain string: conditions for their best work; environments to avoid","skills":{"demonstrated":["shown in the conversation"],"claimed":["stated but not shown"]},"growth":"plain string: trajectory and direction","rolefit":["concrete role types that suit them"],"archetypes":[{"name":"archetype","intensity":"X / 7","why":"reason"}],"serve":["concrete supportive next step"],"gaps":"plain string: what's confident, what's uncertain, and the 1-2 questions that would most improve this Echo",
+"modules":{
+  "upstart":{"workHistory":[{"role":"","employer":"","duration":"","highlights":""}],"certifications":[""],"summary":"plain string: a recruiter-ready professional summary in their voice"},
+  "upswing":{"love":"what they're drawn to / enjoy","goodAt":"demonstrated strengths","worldNeeds":"impact they care about","paidFor":"marketable skills","ikigaiOverlap":"plain string: where these intersect — their candidate purpose"},
+  "uplift":{"supportNeeds":["ONLY things they volunteered — housing, food, transport, benefits, etc., framed as support; empty array if none mentioned"],"stabilityNotes":"plain string, gentle and non-judgmental, or empty"},
+  "upfront":{"verifiableClaims":["things that could be credential-verified"],"nonTraditionalStrengths":["capability not captured by a standard resume"]},
+  "upturn":{"obsolescenceRisk":"low|medium|high|unknown — is their field threatened by tech?","transferableSkills":[""],"pivotIdeas":[""]},
+  "mockup":{"presentationReadiness":"plain string: how they come across, interview confidence","prepFocus":["specific things to coach before an interview"]},
+  "preferences":{"geography":"","payExpectation":"","schedule":"","dealbreakers":""}
+}}
+For any module field with no evidence, use an empty string or empty array — never invent. bigfive MUST contain all 5: Openness, Conscientiousness, Extraversion, Agreeableness, Emotional Stability. Output the JSON object and nothing else.`;
 
 /* ====================== STATE ====================== */
 let messages = [];
@@ -241,7 +262,10 @@ async function groq(system, msgs, wantJson){
   const body = {
     model: "llama-3.3-70b-versatile",
     messages: [{role:"system",content:system}, ...msgs.map(m => ({role: m.role==="assistant"?"assistant":"user", content:m.content}))],
-    temperature: 0.7
+    temperature: 0.7,
+    // The Echo build returns a large JSON; conversation turns are short. Give the
+    // JSON build plenty of room so it doesn't truncate mid-object.
+    max_tokens: wantJson ? 6000 : 500
   };
   if (wantJson) body.response_format = {type:"json_object"};
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -637,6 +661,40 @@ function renderEcho(E){
   if (E.serve){ let h=`<section class="es"><div class="sec-head"><span class="sec-num">08</span><span class="sec-title">What Would Serve Them</span></div><ol class="serve">`;
     E.serve.forEach(s=>{ h+=`<li>${esc(s)}</li>`; }); h+=`</ol></section>`; add(h); }
   if (E.gaps){ add(`<section class="es"><div class="sec-head"><span class="sec-num">09</span><span class="sec-title">Confidence &amp; Gaps</span></div><div class="gaps">${esc(E.gaps)}</div></section>`); }
+
+  // ---- DION MODULE DATA ----
+  const M = E.modules || {};
+  const list = arr => (Array.isArray(arr)?arr:[]).filter(Boolean).map(esc).join(" · ") || "—";
+  const moduleCards = [];
+  if (M.upstart){
+    const wh = (Array.isArray(M.upstart.workHistory)?M.upstart.workHistory:[]).map(j =>
+      `<div style="margin-bottom:6px"><b>${esc(j.role||"")}</b>${j.employer?" — "+esc(j.employer):""}${j.duration?" ("+esc(j.duration)+")":""}${j.highlights?"<br><span style='color:var(--muted)'>"+esc(j.highlights)+"</span>":""}</div>`).join("") || "—";
+    moduleCards.push(`<div class="mini"><h4>UPSTART · Résumé</h4><p>${esc(M.upstart.summary)}</p><div style="margin-top:8px;font-size:13px">${wh}</div>${M.upstart.certifications&&M.upstart.certifications.length?`<p style="margin-top:6px"><b>Certs:</b> ${list(M.upstart.certifications)}</p>`:""}</div>`);
+  }
+  if (M.upswing){
+    moduleCards.push(`<div class="mini"><h4>UPSWING · Ikigai</h4><p><b>Loves:</b> ${esc(M.upswing.love)}<br><b>Good at:</b> ${esc(M.upswing.goodAt)}<br><b>World needs:</b> ${esc(M.upswing.worldNeeds)}<br><b>Paid for:</b> ${esc(M.upswing.paidFor)}</p>${M.upswing.ikigaiOverlap?`<p style="margin-top:6px;color:var(--accent-2)">${esc(M.upswing.ikigaiOverlap)}</p>`:""}</div>`);
+  }
+  if (M.uplift && ((M.uplift.supportNeeds&&M.uplift.supportNeeds.length) || M.uplift.stabilityNotes)){
+    moduleCards.push(`<div class="mini"><h4>UPLIFT · Support</h4>${M.uplift.supportNeeds&&M.uplift.supportNeeds.length?`<p>${list(M.uplift.supportNeeds)}</p>`:""}${M.uplift.stabilityNotes?`<p style="margin-top:6px;color:var(--muted)">${esc(M.uplift.stabilityNotes)}</p>`:""}</div>`);
+  }
+  if (M.upfront){
+    moduleCards.push(`<div class="mini"><h4>UPFRONT · Verifiable</h4><p><b>Verifiable:</b> ${list(M.upfront.verifiableClaims)}</p><p style="margin-top:6px"><b>Hidden strengths:</b> ${list(M.upfront.nonTraditionalStrengths)}</p></div>`);
+  }
+  if (M.upturn){
+    moduleCards.push(`<div class="mini"><h4>UPTURN · Pivot</h4><p><b>Obsolescence risk:</b> ${esc(M.upturn.obsolescenceRisk)}</p><p style="margin-top:6px"><b>Transferable:</b> ${list(M.upturn.transferableSkills)}</p>${M.upturn.pivotIdeas&&M.upturn.pivotIdeas.length?`<p style="margin-top:6px"><b>Pivots:</b> ${list(M.upturn.pivotIdeas)}</p>`:""}</div>`);
+  }
+  if (M.mockup){
+    moduleCards.push(`<div class="mini"><h4>MOCKUP · Interview prep</h4><p>${esc(M.mockup.presentationReadiness)}</p>${M.mockup.prepFocus&&M.mockup.prepFocus.length?`<p style="margin-top:6px"><b>Coach:</b> ${list(M.mockup.prepFocus)}</p>`:""}</div>`);
+  }
+  if (M.preferences){
+    const p = M.preferences;
+    if (p.geography||p.payExpectation||p.schedule||p.dealbreakers)
+      moduleCards.push(`<div class="mini"><h4>Preferences</h4><p>${p.geography?"<b>Where:</b> "+esc(p.geography)+"<br>":""}${p.payExpectation?"<b>Pay:</b> "+esc(p.payExpectation)+"<br>":""}${p.schedule?"<b>Schedule:</b> "+esc(p.schedule)+"<br>":""}${p.dealbreakers?"<b>Won't accept:</b> "+esc(p.dealbreakers):""}</p></div>`);
+  }
+  if (moduleCards.length){
+    add(`<section class="es"><div class="sec-head"><span class="sec-num">10</span><span class="sec-title">ISG Ecosystem Data</span></div><p class="ev" style="margin-bottom:14px">Structured signals each ELEVATE module reads from this Echo.</p><div class="cards">${moduleCards.join("")}</div></section>`);
+  }
+
   setTimeout(()=>document.querySelectorAll("#echoOut .f").forEach(f=>{const w=f.style.width;f.style.width="0";requestAnimationFrame(()=>f.style.width=w);}),60);
 }
 
