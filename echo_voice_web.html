@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMBER — ISG Echo (Voice)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,600;9..144,1,400;9..144,1,600&family=Spline+Sans+Mono:wght@400;500&family=Spline+Sans:wght@400;500;600&display=swap');
+  :root{--ink:#0d0f12;--paper:#f4f1ea;--paper-2:#ece7db;--line:#d8d1c0;
+    --accent:#c2410c;--accent-2:#1d4d4f;--gold:#a87b2e;--muted:#6b6457;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:'Spline Sans',sans-serif;line-height:1.5;min-height:100vh;
+    background-image:radial-gradient(circle at 12% 18%,rgba(194,65,12,.05),transparent 40%),radial-gradient(circle at 88% 82%,rgba(29,77,79,.06),transparent 45%);}
+  .demo-banner{background:var(--ink);color:var(--paper);font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.1em;text-align:center;padding:8px;text-transform:uppercase}
+  .wrap{max-width:680px;margin:0 auto;padding:28px 18px 70px}
+  .brand{font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted)}
+  .brand b{color:var(--accent)}
+  h1{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(30px,6vw,48px);line-height:.97;letter-spacing:-.02em;margin:6px 0 0}
+  h1 em{font-style:italic;color:var(--accent-2)}
+
+  .panel{display:none}.panel.active{display:block;animation:rise .45s}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:22px;margin-top:22px}
+  .card h3{font-family:'Fraunces',serif;font-size:19px;margin-bottom:12px}
+  .card p{font-size:14px;color:#37342c;margin-bottom:10px;line-height:1.55}
+  .card ul{margin:0 0 12px 18px;font-size:13.5px;color:#37342c}.card li{margin-bottom:5px}
+  label.fld{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+  input[type=password],input[type=text]{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;
+    background:var(--paper);font-family:'Spline Sans Mono',monospace;font-size:13px}
+  input:focus{outline:none;border-color:var(--accent-2)}
+  label.ck{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;margin-top:12px;cursor:pointer}
+  label.ck input{margin-top:3px;width:16px;height:16px;accent-color:var(--accent-2)}
+  .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .toggle{font-size:13.5px;display:flex;gap:8px;align-items:center}
+
+  button{font-family:'Spline Sans',sans-serif;cursor:pointer;border:none;border-radius:30px;font-size:15px;font-weight:600;padding:13px 24px;transition:.16s}
+  .btn-primary{background:var(--ink);color:var(--paper)}.btn-primary:hover{background:var(--accent-2)}
+  .btn-primary:disabled{opacity:.35;cursor:not-allowed}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:500}
+  .btn-ghost:hover{border-color:var(--ink);color:var(--ink)}
+  .btn-row{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}
+
+  /* chat */
+  .chat{margin-top:18px;display:flex;flex-direction:column;gap:12px;min-height:200px}
+  .msg{max-width:90%;padding:13px 17px;border-radius:16px;font-size:15px;line-height:1.5;animation:rise .3s}
+  .msg.ember{background:var(--paper-2);border:1px solid var(--line);border-bottom-left-radius:5px;align-self:flex-start;font-family:'Fraunces',serif;font-size:16.5px}
+  .msg.me{background:var(--ink);color:var(--paper);border-bottom-right-radius:5px;align-self:flex-end}
+  .msg .who{font-family:'Spline Sans Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.55;margin-bottom:5px}
+  .status{font-family:'Spline Sans Mono',monospace;font-size:12px;color:var(--accent-2);min-height:18px;margin:6px 2px}
+  .status.listen{color:var(--accent)}
+  .orb{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--accent-2)}
+  .orb.live{background:var(--accent);animation:pulse 1.1s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(194,65,12,.5)}50%{box-shadow:0 0 0 8px rgba(194,65,12,0)}}
+
+  .composer{margin-top:14px}
+  .bigmic{width:100%;padding:16px;border-radius:30px;background:var(--accent-2);color:var(--paper);font-size:16px;font-weight:600;margin-bottom:8px}
+  .bigmic.stop{background:var(--accent)}
+  textarea{width:100%;min-height:50px;background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:12px;font-family:'Spline Sans',sans-serif;font-size:15px;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--accent-2)}
+  .err{background:rgba(194,65,12,.1);border:1px solid var(--accent);color:#7a2806;border-radius:10px;padding:12px;font-size:13px;margin-top:12px;display:none;white-space:pre-wrap}.err.show{display:block}
+
+  .building{text-align:center;padding:50px 0}
+  .spin{width:42px;height:42px;border:3px solid var(--paper-2);border-top-color:var(--accent);border-radius:50%;margin:0 auto 18px;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .building p{font-family:'Fraunces',serif;font-size:19px}
+
+  /* echo */
+  .snapshot{font-family:'Fraunces',serif;font-size:clamp(18px,2.6vw,23px);line-height:1.45;margin:16px 0 8px;border-left:3px solid var(--accent);padding-left:18px;color:#23211c}
+  .recognize{font-style:italic;color:var(--accent-2);font-family:'Fraunces',serif;font-size:16px;margin-top:12px;padding-left:18px}
+  section.es{margin-top:34px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:15px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .sec-num{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--accent)}
+  .sec-title{font-family:'Fraunces',serif;font-size:20px;font-weight:600}
+  .trait{margin-bottom:15px}.trait-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+  .trait-name{font-weight:600;font-size:14.5px}.trait-val{font-family:'Spline Sans Mono',monospace;font-size:12px;color:var(--muted)}
+  .bar{height:9px;background:var(--paper-2);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .bar .f{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent-2),var(--accent));transition:width 1s}
+  .ev{font-size:12.5px;color:var(--muted);margin-top:5px}.ev::before{content:"› ";color:var(--accent)}
+  .conf{display:inline-block;font-family:'Spline Sans Mono',monospace;font-size:9px;letter-spacing:.1em;padding:2px 6px;border-radius:4px;margin-left:7px;text-transform:uppercase}
+  .conf.high{background:rgba(29,77,79,.14);color:var(--accent-2)}.conf.medium{background:rgba(168,123,46,.16);color:var(--gold)}.conf.low{background:rgba(154,143,122,.18);color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}.chip{background:var(--ink);color:var(--paper);padding:7px 14px;border-radius:30px;font-size:13.5px;display:flex;gap:8px;align-items:center}
+  .chip .rank{font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--gold)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:13px}
+  .mini{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+  .mini h4{font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .mini p{font-size:13.5px;line-height:1.5}
+  .serve{counter-reset:s;list-style:none}.serve li{counter-increment:s;position:relative;padding:13px 0 13px 46px;border-bottom:1px solid var(--line);font-size:14.5px}
+  .serve li::before{content:counter(s,decimal-leading-zero);position:absolute;left:0;top:11px;font-family:'Fraunces',serif;font-size:23px;color:var(--accent);font-weight:600}
+  .gaps{background:var(--paper-2);border:1px dashed var(--line);border-radius:12px;padding:16px;font-size:13.5px;line-height:1.55}
+  footer{margin-top:50px;padding-top:20px;border-top:2px solid var(--ink);font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7}footer b{color:var(--accent-2)}
+</style>
+</head>
+<body>
+<div class="demo-banner">ISG NEXUS · EMBER · Voice Echo · runs in your browser</div>
+<div class="wrap">
+  <div class="brand"><b>ISG NEXUS</b> · UPSTART Engine</div>
+  <h1>Talk with <em>EMBER</em></h1>
+
+  <!-- SETUP -->
+  <div class="panel active" id="p-setup">
+    <div class="card">
+      <h3>A spoken conversation about your working life</h3>
+      <p>EMBER talks with you about your work and goals, then builds you an <b>employment Echo</b> from the conversation. It speaks aloud and listens to you — hands-free — or you can type. The Echo belongs to you and is meant to serve you.</p>
+      <label class="fld">Free Groq API key (starts with gsk_…)</label>
+      <input type="password" id="key" placeholder="gsk_..." autocomplete="off">
+      <p style="font-size:12px;margin-top:6px">Get one free at console.groq.com → API Keys. No credit card.</p>
+
+      <div class="row">
+        <span class="toggle"><input type="checkbox" id="voiceOut" checked> EMBER speaks aloud</span>
+        <span class="toggle"><input type="checkbox" id="handsFree" checked> Hands-free (auto-listen)</span>
+      </div>
+      <p id="voiceWarn" style="font-size:12px;color:var(--accent);margin-top:8px;display:none"></p>
+
+      <label class="ck"><input type="checkbox" id="c1"> I understand this builds an employment profile of me from our conversation.</label>
+      <label class="ck"><input type="checkbox" id="c2"> I'm here willingly and can stop anytime.</label>
+      <div class="btn-row">
+        <button class="btn-primary" id="startBtn" disabled>Start the conversation</button>
+      </div>
+      <div class="err" id="setupErr"></div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="panel" id="p-chat">
+    <div class="chat" id="chat"></div>
+    <div class="status" id="status"></div>
+    <div class="composer">
+      <button class="bigmic" id="micBtn">🎙 Tap to speak</button>
+      <textarea id="answer" placeholder="…or type your answer and press Send"></textarea>
+      <div class="btn-row">
+        <button class="btn-primary" id="sendBtn">Send</button>
+        <button class="btn-ghost" id="handsBtn">Hands-free: on</button>
+        <button class="btn-ghost" id="buildBtn">Build my Echo →</button>
+      </div>
+    </div>
+    <div class="err" id="chatErr"></div>
+  </div>
+
+  <!-- BUILDING -->
+  <div class="panel" id="p-build"><div class="building"><div class="spin"></div><p>Building your employment Echo…</p></div></div>
+
+  <!-- RESULT -->
+  <div class="panel" id="p-result">
+    <div id="echoOut"></div>
+    <div class="err" id="resErr"></div>
+    <div class="btn-row"><button class="btn-ghost" id="againBtn">Start over</button></div>
+    <footer><b>This Echo belongs to its subject.</b> Built from conversation · correctable · serves, never moves. · ISG NEXUS · ELEVATE HORIZONS · © 2026</footer>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ====================== PROMPTS ====================== */
+const INTERVIEWER_SYS = `You are EMBER, ISG's conversational employment guide. You are talking WITH a consenting person to understand their working life, strengths, and goals — and you will use this to build them a Digital Echo (an employment profile that belongs to THEM and serves THEM).
+Style:
+- Warm, perceptive careers counselor, not a form or survey.
+- Lean on INDIRECT questions: ask for moments and stories, let meaning emerge. Mix in a few direct ones so it feels like a real conversation.
+- ONE thing at a time. Keep each turn to 1-3 sentences; it is spoken aloud, so keep it natural and easy to listen to.
+- NEVER re-ask what's already covered. Build on what they said.
+- Over the conversation cover: work history/roles, demonstrated strengths, conditions for their best work, handling pressure and people, what they value in work, what they want next, and any constraints they volunteer.
+- Never probe for weakness or leverage. Sensitive things are 'to support', never to exploit.
+When you have enough for a strong profile (usually 10-16 exchanges), end your turn with a warm closing sentence and then the exact token on its own line: [[READY_TO_BUILD]]`;
+
+const ECHO_SYS = `You are an Echo Builder for ISG. From the employment-interview transcript, construct a structured behavioral + employment Digital Echo of the subject. It exists to SERVE them, never to influence. Write as if they will read it.
+GROUND RULES (non-negotiable):
+- Infer ONLY from evidence; tie claims to what they said.
+- Mark every trait HIGH/MEDIUM/LOW confidence; lower it rather than invent.
+- NEVER output a 'vulnerability' or 'lever'. Sensitive areas appear ONLY as support needs. No clinical labels.
+- Keep DEMONSTRATED skills separate from CLAIMED skills.
+- Do not infer protected characteristics unless stated outright.
+Return ONLY valid JSON (no markdown) with this shape:
+{"snapshot":"3-4 sentences","recognize":"one first-person line","bigfive":[{"name":"Openness","level":0-100,"label":"short","conf":"high|medium|low","ev":"evidence"}],"cognitive":"...","values":[{"rank":"01","name":"...","ev":"..."}],"valuesTension":"...","motivation":"...","emotional":"...","communication":"...","decision":"...","workfit":"...","skills":{"demonstrated":[],"claimed":[]},"growth":"...","rolefit":[],"archetypes":[{"name":"...","intensity":"X / 7","why":"..."}],"serve":[],"gaps":"..."}
+bigfive must have 5 traits: Openness, Conscientiousness, Extraversion, Agreeableness, Emotional Stability. Output the JSON and nothing else.`;
+
+/* ====================== STATE ====================== */
+let messages = [];
+let apiKey = "";
+let handsFree = true;
+let voiceOut = true;
+let busy = false;
+let recognizing = false;
+let rec = null;             // SpeechRecognition instance
+
+/* ====================== CAPABILITY CHECK ====================== */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const synth = window.speechSynthesis;
+const canListen = !!SR;
+const canSpeak = !!synth;
+
+(function initCaps(){
+  let warn = "";
+  if (!canListen) warn = "This browser can't capture speech — you'll type your answers. (Chrome on Android/desktop works best.)";
+  else if (!canSpeak) warn = "This browser can't speak — EMBER will be text-only, but it can still hear you.";
+  if (warn){ $("voiceWarn").style.display = "block"; $("voiceWarn").textContent = warn; }
+})();
+
+/* ====================== SETUP GATING ====================== */
+function gate(){ $("startBtn").disabled = !($("c1").checked && $("c2").checked && $("key").value.trim()); }
+["c1","c2"].forEach(id => $(id).addEventListener("change", gate));
+$("key").addEventListener("input", gate);
+
+$("startBtn").onclick = () => {
+  apiKey = extractKey($("key").value);
+  if (!apiKey){ showErr("setupErr","That doesn't look like a Groq key (should start with gsk_)."); return; }
+  voiceOut  = $("voiceOut").checked && canSpeak;
+  handsFree = $("handsFree").checked && canListen;
+  show("p-chat");
+  updateHandsBtn();
+  emberTurn();           // EMBER opens
+};
+
+function extractKey(raw){
+  const m = (raw||"").replace(/\s+/g,"").match(/gsk_[A-Za-z0-9]{52}/);
+  return m ? m[0] : "";
+}
+
+/* ====================== GROQ CALL ====================== */
+async function groq(system, msgs, wantJson){
+  const body = {
+    model: "llama-3.3-70b-versatile",
+    messages: [{role:"system",content:system}, ...msgs.map(m => ({role: m.role==="assistant"?"assistant":"user", content:m.content}))],
+    temperature: 0.7
+  };
+  if (wantJson) body.response_format = {type:"json_object"};
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
+    body: JSON.stringify(body)
+  });
+  if (!res.ok){
+    let detail = "";
+    try { const j = await res.json(); detail = j.error?.message || ""; } catch(e){}
+    throw new Error("Groq "+res.status+(detail?": "+detail:""));
+  }
+  const data = await res.json();
+  return data.choices[0].message.content.trim();
+}
+
+/* ====================== VOICE OUT (speech synthesis) ====================== */
+function speak(text){
+  return new Promise(resolve => {
+    if (!voiceOut || !canSpeak || !text){ resolve(); return; }
+    try {
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.0; u.pitch = 1.0;
+      // prefer a warm English voice if available
+      const vs = synth.getVoices();
+      const pick = vs.find(v => /en[-_]?(US|GB)/i.test(v.lang) && /female|samantha|google|zira|aria/i.test(v.name)) || vs.find(v => /^en/i.test(v.lang));
+      if (pick) u.voice = pick;
+      u.onend = () => resolve();
+      u.onerror = () => resolve();
+      synth.speak(u);
+    } catch(e){ resolve(); }
+  });
+}
+
+/* ====================== VOICE IN (continuous + silence detection) ======================
+   The recognizer runs continuously and accumulates everything you say. After
+   you stop talking for SILENCE_MS, we treat the turn as finished and resolve.
+   Short pauses mid-thought no longer cut you off. */
+const SILENCE_MS = 2500;   // how long a pause must be before EMBER takes its turn
+let stopListening = function(){ try { if (rec) rec.stop(); } catch(e){} };
+
+function listenOnce(){
+  return new Promise(resolve => {
+    if (!canListen){ resolve(""); return; }
+    let finalText = "";       // confirmed (final) speech so far
+    let interim = "";         // live partial guess
+    let silenceTimer = null;
+    let done = false;
+    let manualStop = false;
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(silenceTimer);
+      recognizing = false;
+      try { rec.onend = null; rec.stop(); } catch(e){}
+      setStatus("");
+      resolve((finalText + " " + interim).trim());
+    };
+
+    const armSilence = () => {
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(finish, SILENCE_MS);
+    };
+
+    try {
+      rec = new SR();
+      rec.lang = "en-US";
+      rec.interimResults = true;     // we need partials to detect "still talking"
+      rec.continuous = true;         // keep going through pauses
+      rec.maxAlternatives = 1;
+      recognizing = true;
+      setStatus("listening — speak naturally, pause when done", true);
+
+      rec.onresult = e => {
+        interim = "";
+        for (let i = e.resultIndex; i < e.results.length; i++){
+          const r = e.results[i];
+          if (r.isFinal) finalText += (finalText ? " " : "") + r[0].transcript.trim();
+          else interim += r[0].transcript;
+        }
+        const preview = (finalText + " " + interim).trim();
+        setStatus(preview ? "… " + preview : "listening…", true);
+        armSilence();               // reset the silence countdown on any speech
+      };
+
+      rec.onerror = ev => {
+        // 'no-speech' just means quiet so far — keep waiting, don't bail
+        if (ev.error === "no-speech") { armSilence(); return; }
+        if (ev.error === "not-allowed" || ev.error === "service-not-allowed"){
+          showErr("chatErr", "Microphone blocked. The browser needs mic permission, "
+            + "and speech only works over https:// or localhost — not a file:// open.\n"
+            + "Fix: host this file on a free https site (Netlify Drop, GitHub Pages) "
+            + "and allow the mic prompt. You can still type your answers below.");
+        } else if (ev.error === "audio-capture"){
+          showErr("chatErr", "No microphone found on this device. You can type instead.");
+        } else {
+          showErr("chatErr", "Speech recognition error: " + ev.error + ". You can type instead.");
+        }
+        finish();
+      };
+
+      // If the engine ends on its own but we're not done and not stopped,
+      // restart it so listening is truly continuous.
+      rec.onend = () => {
+        if (done || manualStop) return;
+        try { rec.start(); } catch(e){ finish(); }
+      };
+
+      try {
+        rec.start();
+      } catch(startErr){
+        showErr("chatErr", "Couldn't start the mic: " + startErr.message
+          + "\nSpeech needs https:// or localhost. Type your answer below instead.");
+        recognizing = false; resolve(""); return;
+      }
+      armSilence();                  // start the clock even if you stay silent
+
+      // expose a way for the mic/stop button to end it immediately
+      stopListening = () => { manualStop = true; finish(); };
+    } catch(e){
+      recognizing = false;
+      showErr("chatErr", "Voice input unavailable: " + e.message + ". You can type instead.");
+      resolve("");
+    }
+  });
+}
+
+/* ====================== UI HELPERS ====================== */
+function show(p){ document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active")); $(p).classList.add("active"); }
+function setStatus(txt, listening){
+  const s = $("status");
+  s.className = "status" + (listening ? " listen" : "");
+  s.innerHTML = txt ? `<span class="orb${listening?" live":""}"></span>${txt}` : "";
+}
+function bubble(role, text){
+  const d = document.createElement("div");
+  d.className = "msg " + (role==="assistant" ? "ember" : "me");
+  d.innerHTML = `<div class="who">${role==="assistant"?"EMBER":"You"}</div>${esc(text)}`;
+  $("chat").appendChild(d);
+  d.scrollIntoView({behavior:"smooth", block:"end"});
+}
+function esc(s){ return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function showErr(id,msg){ const e=$(id); e.classList.add("show"); e.textContent=msg; }
+
+/* ====================== CONVERSATION LOOP ====================== */
+async function emberTurn(){
+  if (busy) return;
+  busy = true;
+  setStatus("EMBER is thinking…");
+  try {
+    const seed = messages.length ? messages : [{role:"user", content:"Begin the conversation. Greet me warmly, explain in one or two sentences that this is a relaxed chat to build my employment Echo, and ask your first question."}];
+    let reply = await groq(INTERVIEWER_SYS, seed, false);
+    const ready = reply.includes("[[READY_TO_BUILD]]");
+    reply = reply.replace("[[READY_TO_BUILD]]","").trim();
+    messages.push({role:"assistant", content:reply});
+    bubble("assistant", reply);
+    setStatus(voiceOut ? "EMBER is speaking…" : "");
+    await speak(reply);
+    setStatus("");
+    busy = false;
+    if (ready){
+      bubble("","— EMBER feels there's enough. Tap 'Build my Echo' when ready —");
+      handsFree = false; updateHandsBtn();
+      return;
+    }
+    if (handsFree) setTimeout(listenAndReply, 250);
+  } catch(err){
+    busy = false; setStatus("");
+    showErr("chatErr", err.message + (err.message.includes("401") ? "\n→ check your key starts with gsk_" : ""));
+  }
+}
+
+async function listenAndReply(){
+  if (!handsFree || busy) return;
+  $("micBtn").textContent = "⏹ Listening… (pause when done)";
+  $("micBtn").classList.add("stop");
+  const txt = await listenOnce();
+  $("micBtn").textContent = "🎙 Tap to speak";
+  $("micBtn").classList.remove("stop");
+  if (!handsFree) return;
+  if (!txt){ setStatus("didn't catch that — tap the mic or type"); return; }
+  messages.push({role:"user", content:txt});
+  bubble("me", txt);
+  emberTurn();
+}
+
+/* ====================== CONTROLS ====================== */
+$("micBtn").onclick = async () => {
+  if (recognizing){ stopListening(); $("micBtn").textContent = "🎙 Tap to speak"; $("micBtn").classList.remove("stop"); return; }
+  $("micBtn").textContent = "⏹ I'm done (or just pause)";
+  $("micBtn").classList.add("stop");
+  const txt = await listenOnce();
+  $("micBtn").textContent = "🎙 Tap to speak";
+  $("micBtn").classList.remove("stop");
+  if (txt){
+    $("answer").value = ($("answer").value + " " + txt).trim();
+  }
+};
+
+$("sendBtn").onclick = () => {
+  const t = $("answer").value.trim();
+  if (!t) return;
+  $("answer").value = "";
+  messages.push({role:"user", content:t});
+  bubble("me", t);
+  emberTurn();
+};
+
+$("handsBtn").onclick = () => {
+  handsFree = !handsFree && canListen;
+  updateHandsBtn();
+  if (handsFree && !busy && messages.length && messages[messages.length-1].role==="assistant"){
+    listenAndReply();
+  } else if (!handsFree){
+    stopListening();
+  }
+};
+function updateHandsBtn(){
+  $("handsBtn").textContent = "Hands-free: " + (handsFree ? "on" : "off");
+  $("handsBtn").style.color = handsFree ? "var(--accent-2)" : "var(--muted)";
+}
+
+$("buildBtn").onclick = buildEcho;
+async function buildEcho(){
+  if (messages.filter(m=>m.role==="user").length < 3){ showErr("chatErr","Talk with EMBER a little more first."); return; }
+  handsFree = false; stopListening();
+  show("p-build");
+  const convo = messages.map(m => (m.role==="user"?"PERSON: ":"EMBER: ") + m.content).join("\n\n");
+  let raw = "";
+  try {
+    raw = await groq(ECHO_SYS, [{role:"user", content:"Build the Digital Echo from this consented employment interview. Output ONLY the JSON.\n\nTRANSCRIPT:\n"+convo}], true);
+    let c = raw.replace(/```json/gi,"").replace(/```/g,"").trim();
+    const s=c.indexOf("{"), e=c.lastIndexOf("}");
+    if (s>=0 && e>s) c = c.slice(s,e+1);
+    renderEcho(JSON.parse(c));
+    show("p-result");
+  } catch(err){
+    show("p-result");
+    showErr("resErr", "Couldn't parse the Echo cleanly. Raw output:\n\n" + raw);
+  }
+}
+
+$("againBtn").onclick = () => { messages=[]; $("chat").innerHTML=""; show("p-setup"); };
+
+/* ====================== ECHO RENDER ====================== */
+function renderEcho(E){
+  const out = $("echoOut"); out.innerHTML="";
+  const add = h => { const d=document.createElement("div"); d.innerHTML=h; out.appendChild(d); };
+  add(`<p class="snapshot">${esc(E.snapshot)}</p>` + (E.recognize?`<p class="recognize">${esc(E.recognize)}</p>`:""));
+  if (E.bigfive){
+    let h=`<section class="es"><div class="sec-head"><span class="sec-num">02</span><span class="sec-title">The Backbone — Big Five</span></div>`;
+    E.bigfive.forEach(t=>{ h+=`<div class="trait"><div class="trait-row"><span class="trait-name">${esc(t.name)}<span class="conf ${esc((t.conf||"").toLowerCase())}">${esc(t.conf)}</span></span><span class="trait-val">${esc(t.label)}</span></div><div class="bar"><div class="f" style="width:${Number(t.level)||0}%"></div></div><div class="ev">${esc(t.ev)}</div></div>`; });
+    h+=`</section>`; add(h);
+  }
+  add(`<section class="es"><div class="sec-head"><span class="sec-num">03</span><span class="sec-title">Mind &amp; Manner</span></div><div class="cards">
+    ${E.cognitive?`<div class="mini"><h4>Cognitive style</h4><p>${esc(E.cognitive)}</p></div>`:""}
+    ${E.emotional?`<div class="mini"><h4>Emotional landscape</h4><p>${esc(E.emotional)}</p></div>`:""}
+    ${E.communication?`<div class="mini"><h4>Communication</h4><p>${esc(E.communication)}</p></div>`:""}
+    ${E.decision?`<div class="mini"><h4>How they decide</h4><p>${esc(E.decision)}</p></div>`:""}
+    ${E.workfit?`<div class="mini"><h4>Work &amp; role fit</h4><p>${esc(E.workfit)}</p></div>`:""}
+    ${E.motivation?`<div class="mini"><h4>Motivation</h4><p>${esc(E.motivation)}</p></div>`:""}</div></section>`);
+  if (E.values){
+    let h=`<section class="es"><div class="sec-head"><span class="sec-num">04</span><span class="sec-title">What They Value</span></div><div class="chips">`;
+    E.values.forEach(v=>{ h+=`<div class="chip"><span class="rank">${esc(v.rank)}</span>${esc(v.name)}</div>`; });
+    h+=`</div>`; if (E.valuesTension) h+=`<p class="ev" style="margin-top:12px">${esc(E.valuesTension)}</p>`; h+=`</section>`; add(h);
+  }
+  if (E.skills){ add(`<section class="es"><div class="sec-head"><span class="sec-num">05</span><span class="sec-title">Capability Signals</span></div><div class="cards">
+    <div class="mini"><h4>Demonstrated</h4><p>${(E.skills.demonstrated||[]).map(esc).join(" · ")||"—"}</p></div>
+    <div class="mini"><h4>Claimed</h4><p>${(E.skills.claimed||[]).map(esc).join(" · ")||"—"}</p></div></div></section>`); }
+  if (E.rolefit){ add(`<section class="es"><div class="sec-head"><span class="sec-num">06</span><span class="sec-title">Roles That Fit</span></div><div class="chips">${E.rolefit.map(r=>`<div class="chip">${esc(r)}</div>`).join("")}</div></section>`); }
+  if (E.archetypes){ let h=`<section class="es"><div class="sec-head"><span class="sec-num">07</span><span class="sec-title">Archetype Read</span></div><div class="cards">`;
+    E.archetypes.forEach(a=>{ h+=`<div class="mini"><h4>${esc(a.name)} · ${esc(a.intensity)}</h4><p>${esc(a.why)}</p></div>`; }); h+=`</div></section>`; add(h); }
+  if (E.serve){ let h=`<section class="es"><div class="sec-head"><span class="sec-num">08</span><span class="sec-title">What Would Serve Them</span></div><ol class="serve">`;
+    E.serve.forEach(s=>{ h+=`<li>${esc(s)}</li>`; }); h+=`</ol></section>`; add(h); }
+  if (E.gaps){ add(`<section class="es"><div class="sec-head"><span class="sec-num">09</span><span class="sec-title">Confidence &amp; Gaps</span></div><div class="gaps">${esc(E.gaps)}</div></section>`); }
+  setTimeout(()=>document.querySelectorAll("#echoOut .f").forEach(f=>{const w=f.style.width;f.style.width="0";requestAnimationFrame(()=>f.style.width=w);}),60);
+}
+
+// Some browsers load voices async; trigger a load.
+if (canSpeak){ synth.onvoiceschanged = () => {}; synth.getVoices(); }
+</script>
+</body>
+</html>
