@@ -182,6 +182,7 @@ let handsFree = true;
 let voiceOut = true;
 let busy = false;
 let recognizing = false;
+let speaking = false;       // true while EMBER's TTS is playing
 let rec = null;             // SpeechRecognition instance
 
 /* ====================== CAPABILITY CHECK ====================== */
@@ -244,17 +245,25 @@ function speak(text){
   return new Promise(resolve => {
     if (!voiceOut || !canSpeak || !text){ resolve(); return; }
     try {
+      // Make absolutely sure the mic is not open while we speak.
+      try { if (rec) { rec.onend = null; rec.abort && rec.abort(); rec.stop(); } } catch(e){}
+      recognizing = false;
+      speaking = true;
       synth.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 1.0; u.pitch = 1.0;
-      // prefer a warm English voice if available
       const vs = synth.getVoices();
-      const pick = vs.find(v => /en[-_]?(US|GB)/i.test(v.lang) && /female|samantha|google|zira|aria/i.test(v.name)) || vs.find(v => /^en/i.test(v.lang));
+      const pick = vs.find(v => /en[-_]?(US|GB)/i.test(v.lang) && /female|samantha|google|zira|aria|jenny/i.test(v.name)) || vs.find(v => /^en/i.test(v.lang));
       if (pick) u.voice = pick;
-      u.onend = () => resolve();
-      u.onerror = () => resolve();
+      const done = () => {
+        speaking = false;
+        // Small tail buffer so the speaker's last sound doesn't leak into the mic.
+        setTimeout(resolve, 350);
+      };
+      u.onend = done;
+      u.onerror = done;
       synth.speak(u);
-    } catch(e){ resolve(); }
+    } catch(e){ speaking = false; resolve(); }
   });
 }
 
@@ -268,18 +277,20 @@ let stopListening = function(){ try { if (rec) rec.stop(); } catch(e){} };
 function listenOnce(){
   return new Promise(resolve => {
     if (!canListen){ resolve(""); return; }
+    if (speaking){ resolve(""); return; }   // never open the mic while EMBER speaks
     let finalText = "";       // confirmed (final) speech so far
     let interim = "";         // live partial guess
     let silenceTimer = null;
     let done = false;
     let manualStop = false;
+    let heardSpeech = false;  // did we get ANY real speech this turn?
 
     const finish = () => {
       if (done) return;
       done = true;
       clearTimeout(silenceTimer);
       recognizing = false;
-      try { rec.onend = null; rec.stop(); } catch(e){}
+      try { rec.onend = null; rec.onresult = null; rec.stop(); rec.abort && rec.abort(); } catch(e){}
       setStatus("");
       setMic(false);
       resolve((finalText + " " + interim).trim());
@@ -287,62 +298,68 @@ function listenOnce(){
 
     const armSilence = () => {
       clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(finish, SILENCE_MS);
+      // Only start the "you're done" countdown once we've actually heard speech.
+      if (heardSpeech) silenceTimer = setTimeout(finish, SILENCE_MS);
     };
 
     try {
       rec = new SR();
       rec.lang = "en-US";
-      rec.interimResults = true;     // we need partials to detect "still talking"
-      rec.continuous = true;         // keep going through pauses
+      rec.interimResults = true;
+      rec.continuous = true;
       rec.maxAlternatives = 1;
       recognizing = true;
       setStatus("listening…", true);
       setMic(true);
 
       rec.onresult = e => {
-        interim = "";
-        for (let i = e.resultIndex; i < e.results.length; i++){
+        // Rebuild from scratch each event using the full results list — this
+        // prevents the duplicate/repeat pile-up from appending the same words.
+        let fin = "", inter = "";
+        for (let i = 0; i < e.results.length; i++){
           const r = e.results[i];
-          if (r.isFinal) finalText += (finalText ? " " : "") + r[0].transcript.trim();
-          else interim += r[0].transcript;
+          if (r.isFinal) fin += (fin ? " " : "") + r[0].transcript.trim();
+          else inter += r[0].transcript;
         }
+        finalText = fin;
+        interim = inter;
+        if ((fin + inter).trim()) heardSpeech = true;
         const preview = (finalText + " " + interim).trim();
         setStatus(preview ? "… " + preview : "listening…", true);
-        armSilence();               // reset the silence countdown on any speech
+        armSilence();
       };
 
       rec.onerror = ev => {
-        // 'no-speech' just means quiet so far — keep waiting, don't bail
         if (ev.error === "no-speech") { armSilence(); return; }
+        if (ev.error === "aborted") { return; }   // we aborted on purpose
         if (ev.error === "not-allowed" || ev.error === "service-not-allowed"){
-          showErr("chatErr", "Microphone blocked. The browser needs mic permission, "
-            + "and speech only works over https:// or localhost — not a file:// open.\n"
-            + "Fix: host this file on a free https site (Netlify Drop, GitHub Pages) "
-            + "and allow the mic prompt. You can still type your answers below.");
+          showErr("chatErr", "Microphone blocked. Speech needs https:// and mic permission. "
+            + "On GitHub Pages, tap the address-bar lock → Site settings → allow Microphone. You can also type.");
         } else if (ev.error === "audio-capture"){
-          showErr("chatErr", "No microphone found on this device. You can type instead.");
-        } else {
-          showErr("chatErr", "Speech recognition error: " + ev.error + ". You can type instead.");
+          showErr("chatErr", "No microphone found. You can type instead.");
         }
         finish();
       };
 
-      // If the engine ends on its own but we're not done and not stopped,
-      // restart it so listening is truly continuous.
+      // Only restart if we genuinely haven't heard anything yet (engine timed out
+      // on silence). Once the person has spoken, let the silence timer end the turn
+      // rather than restarting — restarting is what caused the repeat loop.
       rec.onend = () => {
         if (done || manualStop) return;
-        try { rec.start(); } catch(e){ finish(); }
+        if (!heardSpeech){
+          try { rec.start(); } catch(e){ finish(); }
+        } else {
+          finish();
+        }
       };
 
       try {
         rec.start();
       } catch(startErr){
-        showErr("chatErr", "Couldn't start the mic: " + startErr.message
-          + "\nSpeech needs https:// or localhost. Type your answer below instead.");
+        showErr("chatErr", "Couldn't start the mic: " + startErr.message + ". Type your answer instead.");
         recognizing = false; resolve(""); return;
       }
-      armSilence();                  // start the clock even if you stay silent
+      armSilence();
 
       // expose a way for the mic/stop button to end it immediately
       stopListening = () => { manualStop = true; finish(); };
